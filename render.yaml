@@ -1,0 +1,27 @@
+# Render Blueprint — deploys the dashboard + search API as a Node web service.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# To use: in Render, New > Blueprint, connect the soulfernweh/PropertySearch
+# repo, and Render will read this file. Fill in the API keys when prompted
+# (they are marked sync:false so they are NOT stored in git).
+services:
+  - type: web
+    name: property-search
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    # Build: install deps, compile TS, then generate the sold-data set.
+    # Data generation is allowed to fail without blocking the deploy — the
+    # dashboard will simply show an empty state until data is regenerated.
+    buildCommand: "npm install && npm run build && (npm run sold-data || echo 'sold-data generation failed; dashboard will be empty until regenerated')"
+    startCommand: "npm start"
+    healthCheckPath: /dashboard.html
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Only needed for the live property-search form (not the sold-data dashboard).
+      - key: DOMAIN_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false

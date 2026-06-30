@@ -13,6 +13,9 @@ import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 
+/** curl binary: bundled as `curl.exe` on Windows 10+, `curl` elsewhere. */
+const CURL_BIN = process.platform === "win32" ? "curl.exe" : "curl";
+
 const WEEKLY_BASE = "https://www.valuergeneral.nsw.gov.au/__psi/weekly/";
 const YEARLY_BASE = "https://www.valuergeneral.nsw.gov.au/__psi/yearly/";
 const REFERER = "https://valuation.property.nsw.gov.au/embed/propertySalesInformation";
@@ -60,7 +63,7 @@ export interface DownloadSummary {
 function curlDownload(url: string, filepath: string): boolean {
   try {
     execFileSync(
-      "curl.exe",
+      CURL_BIN,
       [
         "-sS",
         "-f",
