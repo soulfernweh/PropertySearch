@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Secrets / environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# NSW PSI data — NOT committed.
+# Source data is CC BY-NC-ND 4.0 (non-commercial, no-derivatives). Regenerate
+# locally with `npm run sold-data`. Raw zips are large and reproducible.
+data/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+
+# Local helper scripts
+kill-port.ps1

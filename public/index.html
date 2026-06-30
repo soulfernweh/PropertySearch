@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Property Search — Melbourne & Sydney</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏠 Property Search</h1>
+      <p class="subtitle">Find your ideal home in Melbourne or Sydney</p>
+    </header>
+
+    <main>
+      <form id="search-form" class="search-form">
+        <div class="form-section">
+          <h2>Location & Commute</h2>
+          <div class="form-group">
+            <label for="workAddress">Work Address</label>
+            <input type="text" id="workAddress" name="workAddress" 
+                   placeholder="e.g. 123 Collins St, Melbourne VIC" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="maxCommuteMinutes">Max Commute (minutes)</label>
+              <input type="number" id="maxCommuteMinutes" name="maxCommuteMinutes" 
+                     min="5" max="120" value="45" required>
+            </div>
+            <div class="form-group">
+              <label for="commuteMode">Travel Mode</label>
+              <select id="commuteMode" name="commuteMode" required>
+                <option value="driving">Driving</option>
+                <option value="public_transport">Public Transport</option>
+                <option value="cycling">Cycling</option>
+                <option value="walking">Walking</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h2>Budget</h2>
+          <div class="form-group">
+            <label for="maxBudget">Maximum Budget (AUD)</label>
+            <input type="number" id="maxBudget" name="maxBudget" 
+                   min="100000" max="10000000" step="10000" value="800000" required>
+            <span class="helper">$100,000 – $10,000,000</span>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h2>Property Preferences <span class="optional">(optional)</span></h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="minBedrooms">Min Bedrooms</label>
+              <input type="number" id="minBedrooms" name="minBedrooms" 
+                     min="1" max="6" placeholder="Any">
+            </div>
+            <div class="form-group">
+              <label for="minLandSize">Min Land Size (sqm)</label>
+              <input type="number" id="minLandSize" name="minLandSize" 
+                     min="0" max="2000" placeholder="Any">
+            </div>
+            <div class="form-group">
+              <label for="storeyPreference">Storeys</label>
+              <select id="storeyPreference" name="storeyPreference">
+                <option value="">Any</option>
+                <option value="single">Single storey</option>
+                <option value="double">Double storey</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" id="submit-btn" class="btn-search">
+          Search Properties
+        </button>
+      </form>
+
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>Searching properties... This may take up to 60 seconds.</p>
+      </div>
+
+      <div id="error" class="error-message hidden"></div>
+
+      <section id="results" class="results hidden">
+        <div class="results-header">
+          <h2>Results</h2>
+          <div id="results-meta" class="results-meta"></div>
+        </div>
+        <div id="results-list" class="results-list"></div>
+        <div id="relaxation" class="relaxation hidden"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

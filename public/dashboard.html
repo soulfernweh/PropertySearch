@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NSW Sold Property Dashboard — Western Sydney</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>NSW Sold Property Dashboard</h1>
+    <p class="sub">Western &amp; South-Western Sydney growth corridors · last 12 months · NSW Valuer General PSI</p>
+  </header>
+
+  <div id="loading-screen" class="loading-screen">
+    <div class="spinner"></div>
+    <p>Loading sales data...</p>
+  </div>
+
+  <main id="app" class="app hidden">
+    <!-- Filters -->
+    <section class="filters">
+      <div class="filter">
+        <label>Category</label>
+        <select id="f-category">
+          <option value="House,Vacant Land">Houses + Vacant Land</option>
+          <option value="House">Houses only</option>
+          <option value="Vacant Land">Vacant Land only</option>
+          <option value="Acreage">Acreage only</option>
+          <option value="Unit">Units only</option>
+          <option value="House,Vacant Land,Acreage">Houses + Land + Acreage</option>
+          <option value="__all">All categories</option>
+        </select>
+      </div>
+      <div class="filter">
+        <label>Region</label>
+        <select id="f-region"><option value="">All regions</option></select>
+      </div>
+      <div class="filter">
+        <label>Zoning</label>
+        <select id="f-zoning"><option value="">All zones</option></select>
+      </div>
+      <div class="filter">
+        <label>Suburb</label>
+        <select id="f-suburb"><option value="">All suburbs</option></select>
+      </div>
+      <div class="filter">
+        <label>Min land (sqm)</label>
+        <input type="number" id="f-minland" placeholder="0">
+      </div>
+      <div class="filter">
+        <label>Max land (sqm)</label>
+        <input type="number" id="f-maxland" placeholder="Any">
+      </div>
+      <div class="filter checkbox-filter">
+        <label>Suburbs</label>
+        <label class="chk"><input type="checkbox" id="f-neighbours" checked> Include neighbours</label>
+      </div>
+      <button id="f-reset" class="btn-reset">Reset all</button>
+    </section>
+
+    <!-- Sliders -->
+    <section class="sliders">
+      <div class="slider-block">
+        <div class="slider-head">
+          <label>Price range</label>
+          <span id="price-readout" class="slider-readout"></span>
+        </div>
+        <div class="range-slider" id="price-slider">
+          <div class="range-track"><div class="range-fill" id="price-fill"></div></div>
+          <input type="range" id="price-min" min="0" max="100" value="0">
+          <input type="range" id="price-max" min="0" max="100" value="100">
+        </div>
+      </div>
+      <div class="slider-block">
+        <div class="slider-head">
+          <label>Sale date range</label>
+          <span id="date-readout" class="slider-readout"></span>
+        </div>
+        <div class="range-slider" id="date-slider">
+          <div class="range-track"><div class="range-fill" id="date-fill"></div></div>
+          <input type="range" id="date-min" min="0" max="100" value="0">
+          <input type="range" id="date-max" min="0" max="100" value="100">
+        </div>
+      </div>
+    </section>
+
+    <!-- Active cross-filters -->
+    <section id="active-chips" class="active-chips hidden"></section>
+
+    <!-- KPIs -->
+    <section class="kpis">
+      <div class="kpi"><span class="kpi-label">Sales</span><span id="kpi-count" class="kpi-value">–</span></div>
+      <div class="kpi"><span class="kpi-label">Median price</span><span id="kpi-median" class="kpi-value">–</span></div>
+      <div class="kpi"><span class="kpi-label">Median $/sqm</span><span id="kpi-persqm" class="kpi-value">–</span></div>
+      <div class="kpi"><span class="kpi-label">Median land</span><span id="kpi-land" class="kpi-value">–</span></div>
+    </section>
+
+    <p class="hint">Tip: click any bar in the suburb, street or volume charts to filter the whole dashboard. Click again or use the chips above to clear.</p>
+
+    <!-- Charts -->
+    <section class="charts">
+      <div class="card chart-card">
+        <h3>Median price trend (by month)</h3>
+        <canvas id="chart-trend"></canvas>
+      </div>
+      <div class="card chart-card">
+        <h3>Median $/sqm trend (by month)</h3>
+        <canvas id="chart-persqm-trend"></canvas>
+      </div>
+      <div class="card chart-card">
+        <h3>Sales volume (by month) <span class="muted">· click to filter</span></h3>
+        <canvas id="chart-volume"></canvas>
+      </div>
+      <div class="card chart-card">
+        <h3>Top streets by sales <span class="muted">· click to filter</span></h3>
+        <canvas id="chart-streets"></canvas>
+      </div>
+      <div class="card chart-card wide">
+        <h3>Median $/sqm by suburb <span class="muted">· click to filter</span></h3>
+        <canvas id="chart-persqm"></canvas>
+      </div>
+      <div class="card chart-card wide">
+        <h3>Median price by suburb <span class="muted">· click to filter</span></h3>
+        <canvas id="chart-price"></canvas>
+      </div>
+    </section>
+
+    <!-- Table -->
+    <section class="card table-card">
+      <div class="table-head">
+        <h3>Sales <span id="table-count" class="muted"></span></h3>
+        <div class="table-controls">
+          <label>Sort</label>
+          <select id="t-sort">
+            <option value="contractDate">Most recent</option>
+            <option value="priceDesc">Price (high → low)</option>
+            <option value="priceAsc">Price (low → high)</option>
+            <option value="persqmDesc">$/sqm (high → low)</option>
+            <option value="persqmAsc">$/sqm (low → high)</option>
+            <option value="landDesc">Land size (large → small)</option>
+          </select>
+          <input type="text" id="t-search" placeholder="Filter by street/address...">
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table id="sales-table">
+          <thead>
+            <tr>
+              <th>Date</th><th>Address</th><th>Suburb</th><th>Category</th>
+              <th class="num">Price</th><th class="num">Land m²</th>
+              <th class="num">$/m²</th><th>Zoning</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <button id="t-more" class="btn-more">Show more</button>
+      </div>
+    </section>
+
+    <!-- Zoning FAQ -->
+    <section class="card faq-card">
+      <button id="faq-toggle" class="faq-toggle" aria-expanded="false">
+        <span>Zoning FAQ — what do these codes mean?</span>
+        <span class="faq-chevron">▾</span>
+      </button>
+      <div id="faq-body" class="faq-body hidden"></div>
+    </section>
+  </main>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
