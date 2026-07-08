@@ -160,15 +160,22 @@ function parseLines(
     const unitNumber = p[6];
     const houseNumber = p[7];
     const streetName = toTitleCase(p[8]);
-    const addressParts = [
-      unitNumber ? `${unitNumber}/` : "",
-      houseNumber,
-      streetName,
-    ]
+    const key = `${p[1]}|${p[2]}|${p[3]}`;
+    const legal = legalDescByKey.get(key) ?? "";
+
+    // Build the street portion. New-subdivision lots often have no street
+    // number yet — in that case fall back to the lot/plan legal description
+    // (e.g. "Lot 210/5/1227") so the property can still be located.
+    let streetPart = [unitNumber ? `${unitNumber}/` : "", houseNumber, streetName]
       .join(" ")
       .replace(/\s+/g, " ")
       .trim();
-    const address = `${addressParts}, ${suburb} NSW ${postcode}`.trim();
+    if (!unitNumber && !houseNumber) {
+      streetPart = legal
+        ? `Lot ${legal} ${streetName}`.replace(/\s+/g, " ").trim()
+        : streetName;
+    }
+    const address = `${streetPart}, ${suburb} NSW ${postcode}`.trim();
 
     const area = parseFloat(p[11]);
     const areaType = p[12];
@@ -176,7 +183,6 @@ function parseLines(
       Number.isFinite(area) ? (areaType === "H" ? area * 10000 : area) : null;
 
     const price = parseInt(p[15], 10);
-    const key = `${p[1]}|${p[2]}|${p[3]}`;
 
     records.push({
       propertyId: p[2],

@@ -56,6 +56,39 @@ export interface DownloadSummary {
   missing: string[];   // not available on server (404/403)
 }
 
+/** URL of a weekly file for a given YYYYMMDD date string. */
+export function weeklyUrl(yyyymmddStr: string): string {
+  return WEEKLY_BASE + yyyymmddStr + ".zip";
+}
+
+/** Formats a Date as YYYYMMDD (exported convenience). */
+export function toYyyymmdd(d: Date): string {
+  return yyyymmdd(d);
+}
+
+/**
+ * Returns true if a remote file exists (HTTP 200), using a curl HEAD request.
+ * Used by the data-freshness check without downloading the file.
+ */
+export function remoteFileExists(url: string): boolean {
+  try {
+    const out = execFileSync(
+      CURL_BIN,
+      [
+        "-s", "-o", process.platform === "win32" ? "NUL" : "/dev/null",
+        "-I", "-w", "%{http_code}",
+        "-H", `User-Agent: ${USER_AGENT}`,
+        "-H", `Referer: ${REFERER}`,
+        url,
+      ],
+      { encoding: "utf-8" }
+    );
+    return out.trim() === "200";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Download a single weekly file with curl. Returns true on success.
  * Uses `-f` so HTTP errors (missing files) fail instead of writing an error body.

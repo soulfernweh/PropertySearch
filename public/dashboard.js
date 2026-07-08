@@ -13,6 +13,8 @@ const charts = {};
 const catColors = {
   House: "#2563eb", "Vacant Land": "#16a34a", Unit: "#d97706", Acreage: "#7c3aed",
 };
+// Distinct palette for multi-series charts (e.g. per-street trend lines).
+const PALETTE = ["#2563eb", "#16a34a", "#d97706", "#db2777", "#7c3aed", "#0891b2"];
 
 // --- Formatters ---
 const fmtMoney = (n) => (n == null ? "–" : "$" + Math.round(n).toLocaleString("en-AU"));
@@ -397,16 +399,24 @@ function renderCharts() {
     },
   });
 
-  // Top streets — clickable
+  // Top streets — clickable, with median price + $/sqm in tooltip
   const streetGroups = new Map();
   for (const r of FILTERED) {
     if (!r.streetName) continue;
     const key = r.streetName + "||" + r.suburb;
-    if (!streetGroups.has(key)) streetGroups.set(key, { street: r.streetName, suburb: r.suburb, count: 0 });
-    streetGroups.get(key).count++;
+    if (!streetGroups.has(key)) streetGroups.set(key, { street: r.streetName, suburb: r.suburb, recs: [] });
+    streetGroups.get(key).recs.push(r);
   }
+  const streetStats = [...streetGroups.values()].map((g) => ({
+    street: g.street,
+    suburb: g.suburb,
+    count: g.recs.length,
+    medianPrice: median(g.recs.map((r) => r.purchasePrice).filter((p) => p > 0)),
+    medianPersqm: median(g.recs.map(pricePerSqm).filter((v) => v != null)),
+    recs: g.recs,
+  }));
   const suburbSelected = !!document.getElementById("f-suburb").value;
-  const topStreets = [...streetGroups.values()].sort((a, b) => b.count - a.count).slice(0, 15);
+  const topStreets = streetStats.sort((a, b) => b.count - a.count).slice(0, 15);
   streetMeta = topStreets;
   makeChart("chart-streets", {
     type: "bar",
@@ -416,9 +426,52 @@ function renderCharts() {
     },
     options: {
       indexAxis: "y", responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => c.raw + " sales" } } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (c) => c.raw + " sales",
+            afterLabel: (c) => {
+              const s = topStreets[c.dataIndex];
+              return [
+                "Median price: " + fmtMoney(s.medianPrice),
+                "Median $/m²: " + (s.medianPersqm != null ? fmtPerSqm(s.medianPersqm) : "n/a"),
+              ];
+            },
+          },
+        },
+      },
       scales: { x: { ticks: { precision: 0 } } },
       onClick: (e, els) => { if (els.length) pinStreet(els[0].index); },
+    },
+  });
+
+  // Top streets — median $/sqm over time (top 6 streets by sales)
+  const trendStreets = topStreets.slice(0, 6);
+  makeChart("chart-street-trend", {
+    type: "line",
+    data: {
+      labels: months.map(fmtMonth),
+      datasets: trendStreets.map((s, i) => {
+        const map = new Map(
+          groupMedian(s.recs, (r) => monthKey(r.contractDate), pricePerSqm).map((b) => [b.key, b.median])
+        );
+        return {
+          label: suburbSelected ? s.street : `${s.street} (${s.suburb})`,
+          data: months.map((m) => (map.has(m) ? Math.round(map.get(m)) : null)),
+          borderColor: PALETTE[i % PALETTE.length],
+          backgroundColor: "transparent",
+          tension: 0.25, spanGaps: true, pointRadius: 3,
+        };
+      }),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 10 } } },
+        tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmtPerSqm(c.raw)}/m²` } },
+      },
+      scales: { y: { ticks: { callback: (v) => fmtPerSqm(v) } } },
     },
   });
 
@@ -445,6 +498,90 @@ function renderCharts() {
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => fmtMoney(c.raw) } } },
       scales: { x: { ticks: { callback: (v) => fmtMoneyShort(v) } } },
       onClick: (e, els) => { if (els.length) pinSuburb(priceBySuburb[els[0].index].key); },
+    },
+  });
+
+  // --- Scatter plots ---
+  // Prepare data: only records with both price and land size
+  const scatterData = FILTERED
+    .filter((r) => r.purchasePrice > 0 && r.areaSqm != null && r.areaSqm > 0)
+    .map((r) => ({ x: r.areaSqm, y: r.purchasePrice, persqm: r.purchasePrice / r.areaSqm, suburb: r.suburb, address: r.address, cat: r.propertyCategory }));
+
+  // Color by category
+  const scatterByCategory = (data) => {
+    const grouped = {};
+    for (const d of data) {
+      const c = d.cat;
+      if (!grouped[c]) grouped[c] = [];
+      grouped[c].push(d);
+    }
+    return Object.entries(grouped).map(([cat, pts]) => ({
+      label: cat,
+      data: pts.map((p) => ({ x: p.x, y: p.y, suburb: p.suburb, address: p.address })),
+      backgroundColor: (catColors[cat] || "#64748b") + "80", // semi-transparent
+      pointRadius: 3,
+      pointHoverRadius: 5,
+    }));
+  };
+
+  // 1. Land size vs Price
+  makeChart("chart-scatter-price", {
+    type: "scatter",
+    data: { datasets: scatterByCategory(scatterData) },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } },
+        tooltip: { callbacks: {
+          label: (c) => {
+            const p = c.raw;
+            return [`${p.address || ""}`, `Land: ${Math.round(p.x)} m² · Price: ${fmtMoney(p.y)}`];
+          },
+        }},
+      },
+      scales: {
+        x: { title: { display: true, text: "Land size (m²)" }, min: 0 },
+        y: { title: { display: true, text: "Sale price" }, ticks: { callback: (v) => fmtMoneyShort(v) } },
+      },
+    },
+  });
+
+  // 2. $/sqm vs Land size
+  const persqmScatterData = scatterData.map((d) => ({ ...d, y: d.persqm }));
+  const persqmByCategory = (data) => {
+    const grouped = {};
+    for (const d of data) {
+      const c = d.cat;
+      if (!grouped[c]) grouped[c] = [];
+      grouped[c].push(d);
+    }
+    return Object.entries(grouped).map(([cat, pts]) => ({
+      label: cat,
+      data: pts.map((p) => ({ x: p.x, y: p.y, suburb: p.suburb, address: p.address })),
+      backgroundColor: (catColors[cat] || "#64748b") + "80",
+      pointRadius: 3,
+      pointHoverRadius: 5,
+    }));
+  };
+
+  makeChart("chart-scatter-persqm", {
+    type: "scatter",
+    data: { datasets: persqmByCategory(persqmScatterData) },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } },
+        tooltip: { callbacks: {
+          label: (c) => {
+            const p = c.raw;
+            return [`${p.address || ""}`, `Land: ${Math.round(p.x)} m² · ${fmtPerSqm(p.y)}/m²`];
+          },
+        }},
+      },
+      scales: {
+        x: { title: { display: true, text: "Land size (m²)" }, min: 0 },
+        y: { title: { display: true, text: "$/m²" }, ticks: { callback: (v) => fmtPerSqm(v) } },
+      },
     },
   });
 }

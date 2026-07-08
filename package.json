@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "dev": "tsc && node dist/server.js",
     "sold-data": "tsc && node dist/sold-data/run.js",
+    "check-data": "tsc && node dist/sold-data/check-data.js",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest --run --coverage"
